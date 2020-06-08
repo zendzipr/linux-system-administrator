@@ -1,0 +1,144 @@
+#!/bin/bash
+#
+# Installs and configures Wazuh agent on linux. 
+#
+# Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+# Make sure only root can run script
+if [[ $EUID -ne 0 ]]; then
+  echo "Permission Denied"
+  echo "Root privileges required" 1>&2
+  exit 1
+fi
+
+if [[ `hostname` == "localhost" ]]; then
+  echo "This script cannot run if hostname is set to localhost" 1>&2
+   read -n 1 -r -s -p $'Press any key to continue...\n'
+fi
+
+bin_loader ${url} ${branch} wazuh_agent ${ver}
+
+wazuh_menu=""
+until [[ "$wazuh_menu" = "7" ]]; do
+
+  clear
+  banner
+
+  if is_package_installed wazuh-agent; then
+    wazuh_agent_installed=true
+  else
+    wazuh_agent_installed=false
+  fi
+
+  if service status wazuh-agent; then
+    wazuh_agent_running=true
+  else
+    wazuh_agent_running=false
+  fi
+
+  if ${wazuh_agent_installed}; then
+    echo "1. Reconfigure"
+  else
+    echo "1. Install"
+  fi
+
+  if ${wazuh_agent_installed}; then
+    echo "2. Uninstall"
+  fi
+
+  if ! ${wazuh_agent_running}  && ${wazuh_agent_installed}; then
+    echo "3. Start"
+  fi
+
+  if ${wazuh_agent_running}; then
+    echo "3. Stop"
+  fi
+
+  if ${wazuh_agent_running}; then
+    echo "4. Restart"
+  fi
+
+  echo "7. Return to Main Menu"
+  echo
+
+  read wazuh_menu
+  case ${wazuh_menu} in
+    1)
+      ossec_server=''
+      while [[ ${ossec_server} == '' ]]; do
+        read -p "OSSEC Server: " ossec_server
+      done 
+
+      ossec_password=''
+      while [[ ${ossec_password} == '' ]]; do
+        read -p "OSSEC password: " -s ossec_password
+      done
+
+      echo
+
+      if [[ -z "$ossec_group" ]]; then
+        read -p 'OSSEC group (optional): ' GROUP
+        echo
+      fi
+
+      if ${wazuh_agent_installed}; then
+        echo "Re-configuring Wazuh Agent"
+        package_remove wazuh-agent
+        install_wazuh_agent ${ossec_server} ${ossec_password} ${ossec_group}
+      else
+        echo "Installing Wazuh Agent"
+        install_wazuh_agent ${ossec_server} ${ossec_password} ${ossec_group}
+      fi
+      ;;
+
+    2)
+      ## Uninstall
+      if ${wazuh_agent_installed}; then
+        while true; do
+            read -p "Do you wish to uninstall the Wazuh agent? " yn
+            case $yn in
+                [Yy]* )
+                    echo Uninstalling Wazuh Agent
+                    package_unhold wazuh-agent
+                    package_remove wazuh-agent
+                    break
+                 ;;
+                [Nn]* ) break;;
+                * ) echo "Please answer yes or no.";;
+            esac
+        done
+      fi
+      ;;
+    3)
+      ## Start
+      if ! ${wazuh_agent_running} && ${wazuh_agent_installed}; then
+        service start wazuh-agent
+      else
+        service stop wazuh-agent
+      fi
+      ;;
+    4)
+      ## Restart
+      if ${wazuh_agent_running}; then
+        service restart wazuh-agent
+      fi
+      ;;
+
+    7)
+      break
+      ;;
+    *) ;;
+
+  esac
+done

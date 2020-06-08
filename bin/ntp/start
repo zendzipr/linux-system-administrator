@@ -1,0 +1,239 @@
+#!/bin/bash
+
+# This is a shell script installs NTP, ntpdate, and ntpstat.
+#
+# Installs and configures NTP client and only accepts one option.  NTP Server
+# IP address or NTP Pool host name. 
+#
+# Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+# Make sure only root can run script
+if [[ $EUID -ne 0 ]]; then
+  echo "Permission Denied"
+  echo "Root privileges required" 1>&2
+  exit 1
+fi
+
+function disable_timedatectl () {
+  if [[ -f /usr/bin/timedatectl ]]; then
+    timedatectl set-ntp no
+  fi
+}
+
+function edit_ntp_config () {
+  if valid_ip $1; then
+    hosts="server $1"
+  elif valid_fqdn $1; then
+    hosts="pool $1 iburst"
+  else
+    err "ERROR: Invalid Server or domain name.  Cannot edit NTP configuration."
+    read -n 1 -r -s -p $'Press any key to continue...\n'
+  fi
+  
+  if [[ -f /etc/ntp.conf ]]; then
+    echo Editing NTP configuration
+
+    sed -i '/^server/d' /etc/ntp.conf
+    sed -i '/^pool/d' /etc/ntp.conf
+
+    echo "##Custom Name Server" >> /etc/ntp.conf
+    echo "$hosts" >> /etc/ntp.conf
+  else
+    echo ERROR: NTP configuration not found, cannot continue!
+    exit 1
+  fi
+}
+
+function ntp_status () {
+  local  __resultvar=$1
+  
+  if [[ ! "$__resultvar" ]]; then
+    return
+  fi
+  
+  status=$(/usr/bin/ntpstat 2> /dev/null)
+  local rc=$?
+
+  case ${rc} in
+    0)
+      eval ${__resultvar}="'$status'"
+    ;;
+    1)
+      eval ${__resultvar}="'Clocks are NOT synchronized.'"
+    ;;
+    2)
+      eval ${__resultvar}="'NTPD IS DOWN -- NO STATUS.'"
+    ;;
+    127)
+      eval ${__resultvar}="'Not Installed.'"
+    ;;
+  esac
+}
+
+function is_ntp_running () {
+  # Test if NTP Synchronized 
+  if [[ -f /usr/bin/ntpstat ]]; then
+    res=$(/usr/bin/ntpstat)
+    rc=$?
+
+    case ${rc} in
+      1 )
+      err "WARNING: clocks are NOT synchronized."
+      return 3
+      ;;
+      2 )
+      err "CRITICAL: NTPD IS DOWN -- NO STATUS."
+      return 3
+      ;;
+    esac
+  fi
+
+  timeservice=`ntpq -c rv > /dev/null 2>&1`
+  if [[ "$timeservice" == *"refused"* ]]; then
+      err "NTP not running."
+    return 1
+  fi
+}
+
+function restart_services () {
+  #Restart the service.
+  systemctl stop $1 > /dev/null 2> /dev/null
+
+  ntpdate $2 > /dev/null 2> /dev/null
+
+  progress_bar 2
+
+  echo Starting time services
+  systemctl start $1 > /dev/null 2> /dev/null
+  systemctl enable $1 > /dev/null 2> /dev/null
+
+  echo Syncing time servers
+  progress_bar 10
+}
+
+ntpmenu=""
+until [[ "$ntpmenu" = "7" ]]; do
+  ntp_status ntpstatus
+  clear
+  banner "NTP Status: ${ntpstatus}"
+
+  if is_package_installed ntp; then
+    ntp_installed=true
+  else
+    ntp_installed=false
+  fi
+
+  if service_status ${ntp}; then
+    ntp_running=true
+  else
+    ntp_running=false
+  fi
+
+  if ${ntp_installed}; then
+    echo "1. Reconfigure"
+  else
+    echo "1. Install"
+  fi
+
+  if ${ntp_installed}; then
+    echo "2. Uninstall"
+  fi
+
+  if ! ${ntp_running} && ${ntp_installed}; then
+    echo "3. Start"
+  fi
+
+  if ${ntp_running}; then
+    echo "3. Stop"
+  fi
+
+  if ${ntp_running}; then
+    echo "4. Restart"
+  fi
+
+  echo "7. Return to Main Menu"
+  echo
+
+  read ntpmenu
+  case ${ntpmenu} in
+    1)
+      ntp_server=''
+      while [[ ${ntp_server} == '' ]]; do
+        read -p "NTP Server: " ntp_server
+      done 
+
+      if ${ntp_installed}; then
+        disable_timedatectl
+        edit_ntp_config ${ntp_server}
+      else    
+        
+        echo Installing
+        printf "\r%s " .
+        install ntp
+        printf "\r%s " ..
+        install ntpdate
+        printf "\r%s " ...
+        install ntpstat
+        printf "\r%s " ....
+        disable_timedatectl
+        printf "\r%s " ....
+        printf "\r \r"  # clean up
+        edit_ntp_config ${ntp_server}
+      fi
+      
+      restart_services ${ntp} ${ntp_server}
+      ;;
+
+    2)
+      ## Uninstall
+      if ${ntp_installed}; then
+        while true; do
+            read -p "Do you wish to uninstall time services? " yn
+            case $yn in
+                [Yy]* ) echo Uninstalling time services; package_remove ntp; break;;
+                [Nn]* ) break;;
+                * ) echo "Please answer yes or no.";;
+            esac
+        done
+      fi
+      ;;
+    3)
+      ## Start
+      if ! ${ntp_running} && ${ntp_installed}; then
+        systemctl start ${ntp} > /dev/null 2> /dev/null
+        echo Starting time services
+        progress_bar 10
+      else
+        systemctl stop ${ntp} > /dev/null 2> /dev/null
+        echo Stopping time services
+        progress_bar 5
+      fi
+      ;;
+    4)
+      ## Restart
+      if $ntp_running; then
+        systemctl stop ${ntp} > /dev/null 2> /dev/null
+        systemctl start ${ntp} > /dev/null 2> /dev/null
+        echo Re-Starting time services
+        progress_bar 10
+      fi
+      ;;
+
+    7)
+      break
+      ;;
+    *) ;;
+
+  esac
+done

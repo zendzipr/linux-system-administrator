@@ -1,6 +1,9 @@
 ## Linux System Administrator Tools
 
-This is the first release and still has some rough edges.  Before using in production. Please test.  If you find any bugs or have any feature requests, please let me know.
+This is the first release and still has some rough edges.  Before using in production. Please test.  
+
+If you find any bugs or have any feature requests, please let me know.
+
 Linux System Administrator Tools is a easy to use interactive too designed to help speed up administrative tasks.
 
 ### Features
@@ -28,7 +31,11 @@ Linux System Administrator Tools is a easy to use interactive too designed to he
 
 ### Getting Started
 Only one command needed to get started:
-- placeholder for git download
+bash <(curl -s https://raw.githubusercontent.com/zendzipr/linux-system-administrator/master/setup)
+
+or to run from an alternate branch
+
+bash <(curl -s https://raw.githubusercontent.com/zendzipr/linux-system-administrator/BRANCH/setup) BRANCH
 
 ### TODO
 - Inital Upload

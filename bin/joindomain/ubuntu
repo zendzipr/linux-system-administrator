@@ -1,0 +1,70 @@
+#!/bin/bash
+#
+# Installs and configures Wazuh agent on linux. 
+#
+# Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Active Directory Functions
+
+function install_domain () {
+  echo Installing
+  printf "\r%s " .
+  apt-get -q update > /dev/null 2> /dev/null
+  printf "\r%s " ..
+  DEBIAN_FRONTEND=noninteractive apt-get -y install krb5-user  > /dev/null 2> /dev/null
+  printf "\r%s " ...
+  #apt-get -y install krb5-user
+  printf "\r%s " ....
+  install realmd
+  printf "\r%s " .....
+  install sssd
+  printf "\r%s " ......
+  install sssd-tools
+  printf "\r%s " .......
+  install sssd
+  printf "\r%s " ........
+  install samba
+  printf "\r%s " .........
+  install packagekit
+  printf "\r%s " ..........
+  install adcli
+  printf "\r%s " ...........
+  printf "\r \r"  # clean up
+
+  create_realmd $1
+
+  sed -i "s/\(default_realm *= *\).*/\1$1/" /etc/krb5.conf
+}
+
+function create_realmd () {
+cat > /etc/realmd.conf << EOF
+ [users]
+    default-home = /home/%U
+    default-shell = /bin/bash
+[active-directory]
+    default-client = sssd
+[service]
+    automatic-install = no
+[${1^^}]
+    fully-qualified-names = no
+    automatic-id-mapping = yes
+    user-principal = yes
+    manage-system = no
+EOF
+}
+
+function configure_home_directories () {
+  echo -e "\n# Create new user home dir" >> /etc/pam.d/common-session
+  echo -e "\nsession required pam_mkhomedir.so skel=/etc/skel/ umask=0077" >> /etc/pam.d/common-session
+}

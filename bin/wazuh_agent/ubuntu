@@ -1,0 +1,45 @@
+#!/bin/bash
+#
+# Installs and configures Wazuh agent on linux. 
+#
+# Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Wazuh Functions
+
+function install_wazuh_agent () {
+  printf "\r%s " .
+  install curl
+  printf "\r%s " ..
+  install apt-transport-https
+  printf "\r%s " ...
+  install lsb-release
+  printf "\r%s " ....
+  echo "wazuh-agent install" | sudo dpkg --set-selections > /dev/null 2> /dev/null
+  printf "\r%s " .....
+  curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | apt-key add -  > /dev/null 2> /dev/null
+  printf "\r%s " ......
+  echo "deb https://packages.wazuh.com/3.x/apt/ stable main" | tee /etc/apt/sources.list.d/wazuh.list  > /dev/null 2> /dev/null
+  printf "\r%s " .......
+  apt-get -q update > /dev/null 2> /dev/null
+  printf "\r%s " ........
+  WAZUH_MANAGER_IP="$1" WAZUH_AUTHD_SERVER="$1" WAZUH_PASSWORD=$2 WAZUH_GROUP=$3 apt-get -y -qq install wazuh-agent=3.9.5-1 > /dev/null 2> /dev/null
+  echo "wazuh-agent hold" | sudo dpkg --set-selections
+  printf "\r%s " .........
+  echo -e "\n# Wazuh Command Module - If it should accept remote commands from the manager \nwazuh_command.remote_commands = 1 \nlogcollector.remote_commands = 1" >> /var/ossec/etc/local_internal_options.conf
+  printf "\r%s " ..........
+  service_enable wazuh-agent
+  printf "\r%s " ...........
+  printf "\r \r"  # clean up
+  service_restart wazuh-agent
+}

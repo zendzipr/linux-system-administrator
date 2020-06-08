@@ -1,0 +1,269 @@
+#!/bin/bash
+
+# Linux System Administrator.
+#
+# Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+if [[ $EUID -ne 0 ]]; then
+  echo "Permission Denied"
+  echo "Root privileges required" 1>&2
+  exit 1
+fi
+
+lsb_release -a > /dev/null 2> /dev/null
+# Determine Distribution
+if [[ "$?" -eq "0" ]]; then
+  ver=`lsb_release -is`
+  version=`lsb_release -rs`
+else 
+  echo "ERROR: Unable to determine operating system!"
+  exit 1
+fi
+
+lib_loader () {
+  local url=$1
+  local branch=$2
+  local ver=$3
+
+  source <(curl -s "${url}${branch,,}"/lib/"${ver,,}") &>/dev/null
+}
+
+bin_loader () {
+  local url=$1
+  local branch=$2
+  local module=$3
+
+  if [[ -z "$4" ]]; then
+    local os="start"
+  else
+    local os=$4
+  fi
+
+  source <(curl -s ${url}${branch,,}"/bin/"${module,,}"/"${os,,})
+}
+
+lib_loader ${url} ${branch,,} "${ver}"
+
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+
+function banner () {
+
+echo Automated Configuration for Linux Servers
+echo "
+███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗     
+██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔══██╗    
+███████╗█████╗  ██████╔╝██║   ██║█████╗  ██████╔╝    
+╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗    
+███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║    
+╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝    
+                                                     
+ ██████╗ ██████╗ ███╗   ██╗███████╗██╗ ██████╗       
+██╔════╝██╔═══██╗████╗  ██║██╔════╝██║██╔════╝       
+██║     ██║   ██║██╔██╗ ██║█████╗  ██║██║  ███╗      
+██║     ██║   ██║██║╚██╗██║██╔══╝  ██║██║   ██║      
+╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝      
+ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝       
+                                                     "
+  echo -e "Operating System Detected: $ver $version"
+  echo -e "Hostname: $(get_hostname)"
+  echo -e "Primary IP Address: $(get_ip)"
+  
+  if [[ ! -z "$1" ]]; then
+    echo "$1"
+  fi
+  echo
+  echo -e "\e[34m-----------------------------------------------------------------\e[00m"
+  echo -e "SELECT YOUR ACTION"
+  echo -e "\e[34m-----------------------------------------------------------------\e[00m"
+  echo
+}
+
+function waiting () {
+  for n in $(awk -v m="${1:-$1}" 'BEGIN{for(;m;m--){print m}}'); do
+    printf "\r%s " $n
+    sleep 1
+  done
+  printf "\r \r"  # clean up
+}
+
+progress_bar () {
+  local DURATION=$1
+  local INT=0.25      # refresh interval
+
+  local TIME=0
+  local CURLEN=0
+  local SECS=0
+  local FRACTION=0
+
+  local FB=2588       # full block
+
+  trap "echo -e $(tput cnorm); trap - SIGINT; return" SIGINT
+
+  echo -ne "$(tput civis)\r$(tput el)│"                # clean line
+
+  local START=$( date +%s%N )
+
+  while [ $SECS -lt $DURATION ]; do
+    local COLS=$( tput cols )
+
+    # main bar
+    local L=$( bc -l <<< "( ( $COLS - 5 ) * $TIME  ) / ($DURATION-$INT)" | awk '{ printf "%f", $0 }' )
+    local N=$( bc -l <<< $L                                              | awk '{ printf "%d", $0 }' )
+
+    [ $FRACTION -ne 0 ] && echo -ne "$( tput cub 1 )"  # erase partial block
+
+    if [ $N -gt $CURLEN ]; then
+      for i in $( seq 1 $(( N - CURLEN )) ); do
+        echo -ne \\u$FB
+      done
+      CURLEN=$N
+    fi
+
+    # partial block adjustment
+    FRACTION=$( bc -l <<< "( $L - $N ) * 8" | awk '{ printf "%.0f", $0 }' )
+
+    if [ $FRACTION -ne 0 ]; then 
+      local PB=$( printf %x $(( 0x258F - FRACTION + 1 )) )
+      echo -ne \\u$PB
+    fi
+
+    # percentage progress
+    local PROGRESS=$( bc -l <<< "( 100 * $TIME ) / ($DURATION-$INT)" | awk '{ printf "%.0f", $0 }' )
+    echo -ne "$( tput sc )"                            # save pos
+    echo -ne "\r$( tput cuf $(( COLS - 6 )) )"         # move cur
+    echo -ne "│ $PROGRESS%"
+    echo -ne "$( tput rc )"                            # restore pos
+
+    TIME=$( bc -l <<< "$TIME + $INT" | awk '{ printf "%f", $0 }' )
+    SECS=$( bc -l <<<  $TIME         | awk '{ printf "%d", $0 }' )
+
+    # take into account loop execution time
+    local END=$( date +%s%N )
+    local DELTA=$( bc -l <<< "$INT - ( $END - $START )/1000000000" \
+                   | awk '{ if ( $0 > 0 ) printf "%f", $0; else print "0" }' )
+    sleep $DELTA
+    START=$( date +%s%N )
+  done
+
+  echo $(tput cnorm)
+  trap - SIGINT
+}
+
+function install () {
+  if is_package_installed $1; then
+    return
+  else
+    package_install $1
+  fi
+}
+
+valid_ip () {
+  local ip=${1:-1.2.3.4}
+  local IFS=.; local -a a=($ip)
+  
+  # Start with a regex format test
+  [[ $ip =~ ^[0-9]+(\.[0-9]+){3}$ ]] || return 1
+  # Test values of quads
+  local quad
+  for quad in {0..3}; do
+    [[ "${a[$quad]}" -gt 255 ]] && return 1
+  done
+  return 0
+}
+
+#FQDN Validation
+function valid_fqdn () {
+  host $1 > /dev/null 2> /dev/null
+  
+  if [[ "$?" -eq 127 ]]; then
+    if install bind-utils; then
+      valid_fqdn $1
+    fi
+  fi
+}
+
+function valid_ping () {
+  ping -c 1 $1 &> /dev/null
+}
+
+err() {
+  echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
+}
+
+function service_status () {
+  systemctl is-active --quiet $1
+}
+
+function service_restart () {
+  service_stop $1 > /dev/null 2> /dev/null
+  service_start $1 > /dev/null 2> /dev/null
+}
+
+function service_stop () {
+  systemctl stop $1 > /dev/null 2> /dev/null
+}
+
+function service_start () {
+  systemctl start $1 > /dev/null 2> /dev/null
+}
+
+function service_enable () {
+  systemctl enable $1 > /dev/null 2> /dev/null
+}
+
+function service () {
+  local action=$1
+  local service=$2
+
+  if [[ ! "$action" ]] || [[ ! "$service" ]]; then
+    return
+  fi
+
+  case $action in
+    status)
+      eval service_status $service
+    ;;
+    start)
+      eval service_start $service
+    ;;
+    stop)
+      eval service_stop $service
+    ;;
+    restart)
+      eval service_restart $service
+    ;;
+    enable)
+      eval service_enable $service
+    ;;
+  esac
+}
+
+# Obtain Server IP
+function get_ip () {
+    echo $(ip route get 1 | awk '{print $7;exit}')
+}
+
+function get_hostname () {
+    echo $(hostname -f  2> /dev/null)
+}
+
+## Active Directory
+
+function test_domain () {
+  if realm list -n --unattended > /dev/null 2> /dev/null; then
+      echo "(Complete)"
+  fi
+}

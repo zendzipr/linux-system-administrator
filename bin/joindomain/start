@@ -1,0 +1,315 @@
+#!/bin/bash
+
+# This is a shell script to join linux server to an active directory domain.
+#
+# Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+# Make sure only root can run script
+if [[ $EUID -ne 0 ]]; then
+  echo "Permission Denied"
+  echo "Root privileges required" 1>&2
+  exit 1
+fi
+
+if [[ `hostname` == "localhost" ]]; then
+   echo "This script cannot run if hostname is set to localhost" 1>&2
+   read -n 1 -r -s -p $'Press any key to continue...\n'
+fi
+
+bin_loader ${url} ${branch} joindomain ${ver}
+
+function edit_sssd {
+cat > /etc/sssd/sssd.conf << EOF
+[sssd]
+domains = ${1,,}
+config_file_version = 2
+services = nss, pam
+
+[domain/${1,,}]
+ad_domain = ${1,,}
+krb5_realm = ${1^^}
+realmd_tags = manages-system joined-with-adcli
+cache_credentials = True
+id_provider = ad
+krb5_store_password_if_offline = True
+default_shell = /bin/bash
+ldap_id_mapping = True
+ldap_schema = ad
+use_fully_qualified_names = False
+fallback_homedir = /home/%u
+access_provider = simple
+ldap_schema = ad
+ldap_use_tokengroups = false
+EOF
+}
+
+function replace_kerberos_config {
+cat > /etc/krb5.conf << EOF
+# Configuration snippets may be placed in this directory as well
+includedir /etc/krb5.conf.d/
+
+includedir /var/lib/sss/pubconf/krb5.include.d/
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+
+[libdefaults]
+ dns_lookup_realm = true
+ dns_lookup_kdc = true
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+ rdns = false
+ default_ccache_name = KEYRING:persistent:%{uid}
+ default_realm = ${1^^}
+
+[realms]
+ ${1^^} = {
+   kdc = ${1,,}:88
+   admin_server = ${1,,}
+ }
+
+[domain_realm]
+ ${1,,} = ${1^^}
+ .${1,,} = ${1^^}
+EOF
+}
+
+function valid_domain {
+  valid_ping $1
+}
+
+function edit_sudoers {
+  local destdir=/etc/sudoers.d/domain_admins
+
+  touch ${destdir}
+
+  local var="%$1     ALL=(ALL)   ALL";
+
+  if [[ -f "$destdir" ]]
+  then
+    echo "$var" > "$destdir"
+  fi
+}
+
+function read_config () {
+  local CONFIGFILE="$1"
+  eval $(sed '/:/!d;/^ *#/d;s/:/ /;' < "$CONFIGFILE" | while read -r key val
+  do
+      #verify here
+      #...
+      local str="$key='$val'"
+      echo "$str"
+  done)
+}
+
+function realm_manage () {
+  local action=$1
+  local method=$2
+  local items=$3
+
+  case ${method} in
+    group)
+      method="-g"
+    ;;
+    user)
+      method=" "
+    ;;
+    all)
+      method="--all"
+      items=""
+    ;;
+  esac
+
+  case ${action} in
+    add)
+      realm permit ${method} ${items} > /dev/null 2> /dev/null
+    ;;
+    remove)
+      realm permit --withdraw ${method} ${items} > /dev/null 2> /dev/null
+    ;;
+    deny)
+      realm deny ${method} ${items} > /dev/null 2> /dev/null
+    ;;
+    leave)
+      realm leave ${method} > /dev/null 2> /dev/null
+    ;;
+    esac
+}
+
+jmenu=""
+join_domain=""
+domain_admin=""
+security_group=""
+until [[ "$jmenu" = "12" ]]; do
+
+  realm=$(realm list -n --unattended 2> /dev/null)
+  clear
+  banner "Member of domain: ${realm}"
+
+
+
+  if [[ -z ${realm} ]]; then
+      echo "1. Join Active Directory Domain"
+  else
+      echo "2. Leave Domain"
+      echo "3. Restart authentication services"
+      echo "4. Add group"
+      echo "5. Remove group"
+      echo "6. List groups with access"
+      echo "7. Add user"
+      echo "8. Remove user"
+      echo "9. List users with access"
+      echo "10. Disable all domain access"
+      echo "11. Clear user cache"
+  fi
+    echo "12. Return to main menu"
+    echo
+
+  read jmenu
+  case ${jmenu} in
+
+    1)
+      if [[ -z ${realm} ]]; then
+
+          if ! service_status $ntp; then
+            echo ERROR: NTP services required to continue install
+            read -n 1 -r -s -p $'Press any key to continue...\n'
+            continue
+          fi
+
+          # Begin installation
+          while [[ ${join_domain} == '' ]]
+          do
+            read -p 'Enter DOMAIN to join: ' join_domain
+          done
+
+          if ! valid_domain ${join_domain}; then
+            echo "CRITICAL: UNABLE TO REACH DOMAIN"
+            read -n 1 -r -s -p $'Press any key to continue...\n'
+            continue
+          fi
+
+          join_domain=${join_domain^^}
+
+
+          while [[ ${domain_admin} == '' ]]
+          do
+            read -p "Domain administrator. {username}:" domain_admin
+          done
+
+          if [[ -z "$security_group" ]]; then
+            read -p 'Primary security group allowed to access this device: ' security_group
+          fi
+
+          install_domain ${join_domain}
+
+          kinit "$domain_admin@$join_domain"
+
+          if ! klist -s;then
+              echo "kerberos ticket not valid; please try again"
+              read -n 1 -r -s -p $'Press any key to continue...\n'
+              break
+          fi
+
+          realm join ${join_domain}
+          edit_sssd ${join_domain}
+          configure_home_directories $join_domain
+          service_restart realmd
+
+          if [[ -n "${security_group}" ]]; then
+            echo Configuring Security Groups
+            realm_manage deny all
+            realm_manage add group ${security_group}
+
+            echo Configuring Sudo
+            edit_sudoers ${security_group}
+          fi
+      fi
+      ;;
+
+    2)
+        while true; do
+            read -p "Do you wish to leave the domain (${realm})? " yn
+            case $yn in
+                [Yy]* ) realm_manage leave ${realm}; break;;
+                [Nn]* ) break;;
+                * ) echo "Please answer yes or no.";;
+            esac
+        done
+      ;;
+
+    3)
+      service_restart realmd
+      ;;
+    4)
+      security_group=''
+      while [[ ${security_group} == '' ]]
+      do
+        read -p "Enter security group to allow access: " security_group
+      done
+
+      realm_manage add group ${security_group}
+      ;;
+    5)
+      security_group=''
+      while [[ ${security_group} == '' ]]
+      do
+        read -p "Enter security group to remove access: " security_group
+      done
+      realm_manage remove group ${security_group}
+      ;;
+    6)
+      group=$(realm list|grep permitted-groups:)
+      echo ${group}
+      echo
+      read -n 1 -r -s -p $'Press any key to continue...\n'
+      ;;
+    7)
+      user=''
+      while [[ ${user} == '' ]]
+      do
+        read -p "Enter security user to allow access: " user
+      done
+      realm_manage add user $user
+      ;;
+    8)
+      user=''
+      while [[ ${user} == '' ]]
+      do
+        read -p "Enter security user to remove access: " user
+      done
+      realm_manage remove user $user
+      ;;
+    9)
+      users=$(realm list|grep permitted-logins:)
+      echo ${users}
+      echo
+      read -n 1 -r -s -p $'Press any key to continue...\n'
+      ;;
+    10)
+      realm_manage deny all
+      ;;
+    11)
+      sss_cache -E > /dev/null 2> /dev/null
+      ;;
+    12)
+      break
+      ;;
+
+    *) ;;
+
+  esac
+done

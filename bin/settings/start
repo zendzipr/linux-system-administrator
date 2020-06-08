@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Linux System Administrator.
+#
+# Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+if [[ $EUID -ne 0 ]]; then
+  echo "Permission Denied"
+  echo "Root privileges required" 1>&2
+  exit 1
+fi
+
+bin_loader ${url} ${branch} settings ${ver}
+
+## Configure Hostname
+set_hostname () {
+  local new_hostname=$1
+  local cur_hostname=$(get_hostname)
+
+  # Change the hostname
+  hostnamectl set-hostname ${new_hostname}
+  hostname ${new_hostname}
+
+  # Change hostname in /etc/hosts & /etc/hostname
+  sudo sed -i "s/$cur_hostname/$new_hostname/g" /etc/hosts
+  #sudo sed -i "s/$cur_hostname/$new_hostname/g" /etc/hostname
+  
+  if ! grep -q /etc/hosts $(get_ip); then
+    echo "$(get_ip)    $new_hostname" >> /etc/hosts
+  fi
+}
+
+settings_menu=""
+until [[ "$settings_menu" = "7" ]]; do
+
+  clear
+  banner
+
+  echo "1. Set Host Name"
+  echo "2. Set Login Banner"
+  #echo "3. Start Time Services"
+  #echo "3. Stop Time Services"
+  #echo "4. Restart Time Services"
+  echo "7. Return to Main Menu"
+  echo
+
+  read settings_menu
+  case ${settings_menu} in
+    1)
+      host_name=''
+      while [[ ${host_name} == '' ]]; do
+        read -p "New hostname: " host_name
+      done 
+    
+      set_hostname ${host_name}
+      ;;
+
+    2)
+      set_login_banner
+      ;;
+
+    7)
+      break
+      ;;
+    *) ;;
+
+  esac
+done
