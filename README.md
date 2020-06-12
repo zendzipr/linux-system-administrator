@@ -3,13 +3,13 @@
 [![GitHub license](https://img.shields.io/github/license/zendzipr/linux-system-administrator?style=plastic)](https://github.com/zendzipr/linux-system-administrator/blob/master/LICENSE)
 [![Twitter](https://img.shields.io/twitter/url?style=social&url=https%3A%2F%2Ftwitter.com%2Fzzservers)](https://twitter.com/intent/tweet?text=Wow:&url=https%3A%2F%2Fgithub.com%2Fzendzipr%2Flinux-system-administrator)
 
-A Command Line tool to automate linux system administration related tasks.
+Linux System Administrator is a Command-Line tool to automate Linux system administration related tasks.
 
-This is the first release and still has some rough edges.  Before using in production. Please test.  
+This is the first release and still has some rough edges before using in production. Please test.
 
 If you find any bugs or have any feature requests, please let me know.
 
-Linux System Administrator Tools is a easy to use interactive too designed to help speed up administrative tasks.
+Linux System AdministratorLinux System Administrator Tools are easy to use interactive tool designed to help speed up administrative tasks.
 
 ## Features
 
@@ -29,13 +29,13 @@ Linux System Administrator Tools is a easy to use interactive too designed to he
 
 ## Core Concepts
 
-- Consistency manage core aspects of Linux computers?
-- Single point of entry for many administration tasks. 
+- Consistently manage core aspects of Linux computers.
+- •	Acts as a single point of entry for many administration tasks. 
 - Easily expandable
 - Written in bash to simplify development and ease of use.
 
 ## Installation
-There is no installation required.  Linux System Administrator runs directly from github.
+There is no installation required.  Linux System Administrator runs directly from GitHub.
 
 See Getting Started section below for usage instructions.
 
