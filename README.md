@@ -25,7 +25,6 @@ Linux System AdministratorLinux System Administrator Tools are easy to use inter
 - A growing collection of tools to easily and quickly manage Linux computers.
 - No installation required.
 - Single command line.
-- State its goals/what problem(s) it solves.
 
 ## Core Concepts
 
