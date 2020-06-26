@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Installs and configures Wazuh agent on linux. 
+# Installs and configures Wazuh agent on linux.
 #
 # Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
 #

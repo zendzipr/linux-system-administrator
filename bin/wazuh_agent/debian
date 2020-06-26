@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Installs and configures Wazuh agent on linux. 
+# Installs and configures Wazuh agent on linux.
 #
 # Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
 #
@@ -15,4 +15,4 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-source <(curl -s "${url}${branch,,}"/lib/ubuntu) &>/dev/null
+bin_loader ${url} ${branch} wazuh_agent ubuntu
