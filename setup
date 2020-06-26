@@ -97,7 +97,7 @@ until [[ "$menu" = "7" ]]; do
       bin_loader ${url} ${branch} settings
       ;;
     5)
-      bin_loader ${url} ${branch} zabbx-agent
+      bin_loader ${url} ${branch} zabbix-agent
       ;;
     8)
       break
