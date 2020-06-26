@@ -1,0 +1,127 @@
+#!/bin/bash
+#
+# Installs and configures Zabbix agent on linux.
+#
+# Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+# Make sure only root can run script
+if [[ $EUID -ne 0 ]]; then
+  echo 'Permission Denied'
+  echo 'Root privileges required' 1>&2
+  exit 1
+fi
+
+if [[ `hostname` == "localhost" ]]; then
+  echo 'This script cannot run if hostname is set to localhost' 1>&2
+   read -n 1 -r -s -p $'Press any key to continue...\n'
+fi
+
+package=zabbix-agent
+config_file=/etc/zabbix/zabbix_agentd.conf
+
+sub_menu=""
+until [[ "$sub_menu" = "7" ]]; do
+  clear
+  banner
+
+  if is_package_installed ${package}; then
+    package_installed=true
+  else
+    package_installed=false
+  fi
+
+  if service_status ${package}; then
+    service_running=true
+  else
+    service_running=false
+  fi
+
+  if ${package_installed}; then
+    echo '1. Reconfigure'
+  else
+    echo '1. Install'
+  fi
+
+  if ${package_installed}; then
+    echo '2. Uninstall'
+  fi
+
+  if ! ${service_running} && ${package_installed}; then
+    echo '3. Start'
+  fi
+
+  if ${service_running}; then
+    echo '3. Stop'
+  fi
+
+  if ${service_running}; then
+    echo '4. Restart'
+  fi
+
+  echo '7. Return to Main Menu'
+  echo
+
+  read sub_menu
+  case ${sub_menu} in
+    1)
+      server_passive=''
+      while [[ ${server_passive} == '' ]]; do
+        read -p 'Monitoring server address: ' server_passive
+      done
+
+      if ${package_installed}; then
+        echo 'Re-configuring Monitoring Agent'
+        package_remove ${package}
+        package_install ${package}
+      else
+        echo 'Installing Monitoring Agent'
+        package_install ${package}
+      fi
+
+      set_config_variable Server ${server_passive} ${config_file}
+      set_config_variable ServerActive ${server_passive} ${config_file}
+      find_replace 'Hostname=' '# Hostname=' ${config_file}
+      find_replace '# HostnameItem' 'HostnameItem' ${config_file}
+    ;;
+    2)
+      ## Uninstall
+        echo 'Uninstalling Monitoring Agent'
+        package_remove ${package}
+      ;;
+    3)
+      ## Start
+      if ! ${service_running} && ${package_installed}; then
+        echo 'Starting monitoring services'
+        service start ${package}
+      else
+        echo 'Stopping monitoring services'
+        service stop ${package}
+      fi
+      ;;
+    4)
+      ## Restart
+      if ${service_running}; then
+        echo 'Re-Starting monitoring services'
+        service stop ${package}
+        service start ${package}
+      fi
+      ;;
+
+    7)
+      break
+      ;;
+    *) ;;
+
+  esac
+done

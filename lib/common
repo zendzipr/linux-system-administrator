@@ -267,3 +267,29 @@ function test_domain () {
       echo "(Complete)"
   fi
 }
+
+#######################################
+# Set a single configuration Value.
+# Arguments:
+#   Configuration Key
+#   Configuration Value
+#   File to set configuration value, full path to file.
+# Returns:
+#   0 if value successfully changed, non-zero on error.
+#######################################
+function set_config_variable () {
+    sed -i 's/\(^$1=\).*/\1$2/' $3
+}
+
+#######################################
+# Find and replace string in a file.
+# Arguments:
+#   String to change
+#   New string
+#   File to change string, full path to file.
+# Returns:
+#   0 if value successfully changed, non-zero on error.
+#######################################
+function find_replace () {
+    sed -i -e 's/$1/$2/g' $3
+}
