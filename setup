@@ -70,6 +70,13 @@ until [[ "$menu" = "7" ]]; do
       echo "3. Install Wazuh"
   fi
   echo "4. System Configuration"
+
+  if is_package_installed wazuh-agent; then
+      echo "5. Configure Zabbix Agent"
+  else
+      echo "5. Install Zabbix Agent"
+  fi
+
   echo "7. Exit"
   echo
 
@@ -88,6 +95,9 @@ until [[ "$menu" = "7" ]]; do
       ;;
     4)
       bin_loader ${url} ${branch} settings
+      ;;
+    5)
+      bin_loader ${url} ${branch} zabbx-agent
       ;;
     8)
       break

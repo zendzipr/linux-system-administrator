@@ -11,11 +11,18 @@ If you find any bugs or have any feature requests, please let me know.
 
 Linux System AdministratorLinux System Administrator Tools are easy to use interactive tool designed to help speed up administrative tasks.
 
+## Supported Operating Systems
+- Ubuntu
+- Debian
+- CentOS
+- Raspbian
+
 ## Features
 
-- Install and configure NTP
+- Install and configure Time Services (NTP)
 - Install and configure Active Directory Authentication
 - Install and configure Wazuh agent
+- Install and configure Zabbix Agent
 - Set hostname
 - Set login security banner
 - More coming soon
