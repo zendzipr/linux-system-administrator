@@ -92,11 +92,18 @@ until [[ "$sub_menu" = "7" ]]; do
         find_replace '#LogTime' 'LogTime' ${freshclam_config}
         find_replace '#LogSyslog' 'LogSyslog' ${freshclam_config}
         find_replace '#LogRotate' 'LogRotate' ${freshclam_config}
+        grep LogTime ${freshclam_config}
+        grep LogSyslog ${freshclam_config}
+        grep LogRotate ${freshclam_config}
 
         find_replace '#LogTime' 'LogTime' ${clamd_config}
+        grep LogTime ${clamd_config}
         find_replace '#LogSyslog' 'LogSyslog' ${clamd_config}
+        grep LogSyslog ${clamd_config}
         find_replace '#LogRotate' 'LogRotate' ${clamd_config}
+        grep LogRotate ${clamd_config}
         find_replace '#TCPSocket' 'TCPSocket' ${clamd_config}
+        grep TCPSocket ${clamd_config}
 
         echo 'Starting Anti-Virus'
 
