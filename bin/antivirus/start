@@ -1,0 +1,140 @@
+#!/bin/bash
+#
+# Installs and configures Zabbix agent on linux.
+#
+# Copyright (C) 2020  Peter Zendzian <zendzipr@gmail.com>
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+# Make sure only root can run script
+if [[ $EUID -ne 0 ]]; then
+  echo 'Permission Denied'
+  echo 'Root privileges required' 1>&2
+  exit 1
+fi
+
+
+package=clamav
+freshclam_config=/etc/freshclam.conf
+clamd_config=/etc/clamd.d/scan.conf
+
+sub_menu=""
+until [[ "$sub_menu" = "7" ]]; do
+  clear
+  banner
+
+  if is_package_installed clamav && is_package_installed clamav-update && is_package_installed clamd; then
+    package_installed=true
+  else
+    package_installed=false
+  fi
+
+  if service_status clamd@scan && service_status clamav-freshclam; then
+    service_running=true
+  else
+    service_running=false
+  fi
+
+  if ${package_installed}; then
+    echo '1. Reconfigure'
+  else
+    echo '1. Install'
+  fi
+
+  if ${package_installed}; then
+    echo '2. Uninstall'
+  fi
+
+  if ! ${service_running} && ${package_installed}; then
+    echo '3. Start'
+  fi
+
+  if ${service_running}; then
+    echo '3. Stop'
+  fi
+
+  if ${service_running}; then
+    echo '4. Restart'
+  fi
+
+  echo '7. Return to Main Menu'
+  echo
+
+  read sub_menu
+  case ${sub_menu} in
+    1)
+      if ${package_installed}; then
+        echo 'Re-configuring Anti-Virus'
+        package_remove clamav
+        package_remove clamav-update
+        package_remove clamd
+        package_install clamav
+        package_install clamav-update
+        package_install claclamdmav
+      else
+        echo 'Installing Anti-Virus'
+        package_install clamav
+        package_install clamav-update
+        package_install claclamdmav
+      fi
+
+        find_replace '#LogTime yes' 'LogTime yes' ${freshclam_config}
+        find_replace '#LogSyslog yes' 'LogSyslog yes' ${freshclam_config}
+        find_replace '#LogRotate yes' 'LogRotate yes' ${freshclam_config}
+
+        find_replace '#LogTime yes' 'LogTime yes' ${clamd_config}
+        find_replace '#LogSyslog yes' 'LogSyslog yes' ${clamd_config}
+        find_replace '#LogRotate yes' 'LogRotate yes' ${clamd_config}
+        find_replace '#TCPSocket 3310' 'TCPSocket 3310' ${clamd_config}
+
+        service enable clamd@scan
+        service enable clamav-freshclam
+        service start clamd@scan
+        service start clamav-freshclam
+    ;;
+    2)
+      ## Uninstall
+        echo 'Uninstalling Anti-Virus'
+        package_remove clamav
+        package_remove clamav-update
+        package_remove clamd
+      ;;
+    3)
+      ## Start
+      if ! ${service_running} && ${package_installed}; then
+        echo 'Starting Anti-Virus services'
+        service start clamd@scan
+        service start clamav-freshclam
+      else
+        echo 'Stopping Anti-Virus services'
+        service stop clamd@scan
+        service stop clamav-freshclam
+      fi
+      ;;
+    4)
+      ## Restart
+      if ${service_running}; then
+        echo 'Re-Starting Anti-Virus services'
+        service stop clamd@scan
+        service stop clamav-freshclam
+        service start clamd@scan
+        service start clamav-freshclam
+      fi
+      ;;
+
+    7)
+      break
+      ;;
+    *) ;;
+
+  esac
+done
