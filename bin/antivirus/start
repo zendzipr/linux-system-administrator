@@ -87,14 +87,18 @@ until [[ "$sub_menu" = "7" ]]; do
         package_install clamd
       fi
 
-        find_replace '#LogTime yes' 'LogTime yes' ${freshclam_config}
-        find_replace '#LogSyslog yes' 'LogSyslog yes' ${freshclam_config}
-        find_replace '#LogRotate yes' 'LogRotate yes' ${freshclam_config}
+        echo 'Configuring Anti-Virus'
 
-        find_replace '#LogTime yes' 'LogTime yes' ${clamd_config}
-        find_replace '#LogSyslog yes' 'LogSyslog yes' ${clamd_config}
-        find_replace '#LogRotate yes' 'LogRotate yes' ${clamd_config}
-        find_replace '#TCPSocket 3310' 'TCPSocket 3310' ${clamd_config}
+        find_replace '#LogTime' 'LogTime' ${freshclam_config}
+        find_replace '#LogSyslog' 'LogSyslog' ${freshclam_config}
+        find_replace '#LogRotate' 'LogRotate' ${freshclam_config}
+
+        find_replace '#LogTime' 'LogTime' ${clamd_config}
+        find_replace '#LogSyslog' 'LogSyslog' ${clamd_config}
+        find_replace '#LogRotate' 'LogRotate' ${clamd_config}
+        find_replace '#TCPSocket' 'TCPSocket' ${clamd_config}
+
+        echo 'Starting Anti-Virus'
 
         service enable clamd@scan
         service enable clamav-freshclam
