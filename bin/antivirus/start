@@ -88,22 +88,54 @@ until [[ "$sub_menu" = "7" ]]; do
       fi
 
         echo 'Configuring Anti-Virus'
-
-        find_replace '#LogTime' 'LogTime' ${freshclam_config}
-        find_replace '#LogSyslog' 'LogSyslog' ${freshclam_config}
-        find_replace '#LogRotate' 'LogRotate' ${freshclam_config}
         grep LogTime ${freshclam_config}
         grep LogSyslog ${freshclam_config}
         grep LogRotate ${freshclam_config}
 
-        find_replace '#LogTime' 'LogTime' ${clamd_config}
+        find_replace '#LogTime' 'LogTime' ${freshclam_config}
+        find_replace '#LogSyslog' 'LogSyslog' ${freshclam_config}
+        find_replace '#LogRotate' 'LogRotate' ${freshclam_config}
+
+        grep LogTime ${freshclam_config}
+        grep LogSyslog ${freshclam_config}
+        grep LogRotate ${freshclam_config}
+
+        sed -i -e 's/#LogTime/LogTime/' ${freshclam_config}
+        sed -i -e 's/#LogSyslog/LogSyslog/' ${freshclam_config}
+        sed -i -e 's/#LogRotate/LogRotate/' ${freshclam_config}
+
+        grep LogTime ${freshclam_config}
+        grep LogSyslog ${freshclam_config}
+        grep LogRotate ${freshclam_config}
+
+        read -p "Press enter to continue"
+
         grep LogTime ${clamd_config}
-        find_replace '#LogSyslog' 'LogSyslog' ${clamd_config}
         grep LogSyslog ${clamd_config}
-        find_replace '#LogRotate' 'LogRotate' ${clamd_config}
         grep LogRotate ${clamd_config}
-        find_replace '#TCPSocket' 'TCPSocket' ${clamd_config}
         grep TCPSocket ${clamd_config}
+
+        find_replace '#LogTime' 'LogTime' ${clamd_config}
+        find_replace '#LogSyslog' 'LogSyslog' ${clamd_config}
+        find_replace '#LogRotate' 'LogRotate' ${clamd_config}
+        find_replace '#TCPSocket' 'TCPSocket' ${clamd_config}
+
+        grep LogTime ${clamd_config}
+        grep LogSyslog ${clamd_config}
+        grep LogRotate ${clamd_config}
+        grep TCPSocket ${clamd_config}
+
+        sed -i -e 's/#LogTime/LogTime/' ${clamd_config}
+        sed -i -e 's/#LogSyslog/LogSyslog/' ${clamd_config}
+        sed -i -e 's/#LogRotate/LogRotate/' ${clamd_config}
+        sed -i -e 's/#TCPSocket/TCPSocket/' ${clamd_config}
+
+        grep LogTime ${clamd_config}
+        grep LogSyslog ${clamd_config}
+        grep LogRotate ${clamd_config}
+        grep TCPSocket ${clamd_config}
+
+        read -p "Press enter to continue"
 
         echo 'Starting Anti-Virus'
 
