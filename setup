@@ -77,6 +77,12 @@ until [[ "$menu" = "7" ]]; do
       echo "5. Install Zabbix Agent"
   fi
 
+  if is_package_installed clamav && is_package_installed clamav-update && is_package_installed clamd; then
+      echo "6. Configure Anti-Virus"
+  else
+      echo "6. Install Anti-Virus"
+  fi
+
   echo "7. Exit"
   echo
 
@@ -98,6 +104,9 @@ until [[ "$menu" = "7" ]]; do
       ;;
     5)
       bin_loader ${url} ${branch} zabbix_agent
+      ;;
+    5)
+      bin_loader ${url} ${branch} antivirus
       ;;
     8)
       break
