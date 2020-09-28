@@ -79,12 +79,12 @@ until [[ "$sub_menu" = "7" ]]; do
         package_remove clamd
         package_install clamav
         package_install clamav-update
-        package_install claclamdmav
+        package_install clamd
       else
         echo 'Installing Anti-Virus'
         package_install clamav
         package_install clamav-update
-        package_install claclamdmav
+        package_install clamd
       fi
 
         find_replace '#LogTime yes' 'LogTime yes' ${freshclam_config}
