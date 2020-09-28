@@ -105,7 +105,7 @@ until [[ "$menu" = "7" ]]; do
     5)
       bin_loader ${url} ${branch} zabbix_agent
       ;;
-    5)
+    6)
       bin_loader ${url} ${branch} antivirus
       ;;
     8)
