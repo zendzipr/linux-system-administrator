@@ -24,14 +24,14 @@ gpgcheck=1
 gpgkey=https://packages.wazuh.com/key/GPG-KEY-WAZUH
 enabled=1
 name=Wazuh repository
-baseurl=https://packages.wazuh.com/3.x/yum/
+baseurl=https://packages.wazuh.com/4.x/yum/
 protect=1
 EOF
 
   printf "\r%s " .
   sed -i "s/^enabled=0/enabled=1/" /etc/yum.repos.d/wazuh.repo
   printf "\r%s " ..
-  WAZUH_MANAGER_IP="$1" WAZUH_AUTHD_SERVER="$1" WAZUH_PASSWORD=$2 WAZUH_GROUP=$3 yum -y install wazuh-agent-3.9.5-1.x86_64 > /dev/null 2> /dev/null
+  WAZUH_MANAGER_IP="$1" WAZUH_AUTHD_SERVER="$1" WAZUH_PASSWORD=$2 WAZUH_GROUP=$3 yum -y install wazuh-agent-4.0.1-1.x86_64 > /dev/null 2> /dev/null
   printf "\r%s " ...
   sed -i "s/^enabled=1/enabled=0/" /etc/yum.repos.d/wazuh.repo
   printf "\r%s " ....
